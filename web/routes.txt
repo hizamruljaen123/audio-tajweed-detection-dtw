@@ -1,0 +1,42 @@
+=========================================================
+Dokumentasi API untuk Aplikasi Deteksi Tajweed
+=========================================================
+
+Ekstraksi Fitur Audio
+---------------------
+Endpoint: /extract_features
+Metode: POST
+Deskripsi: Mengambil file audio dalam format .opus dan mengekstraksi fitur MFCC-nya.
+Input:
+- File audio dalam format .opus
+
+Output:
+- Status HTTP 200 OK jika ekstraksi berhasil.
+- Status HTTP 400 Bad Request jika tidak ada file yang diunggah.
+- Status HTTP 500 Internal Server Error jika terjadi kesalahan dalam proses ekstraksi.
+
+Deteksi Tajweed dalam Audio
+---------------------------
+Endpoint: /detect_tajweed
+Metode: POST
+Deskripsi: Melakukan deteksi Tajweed dalam file audio .opus yang diunggah.
+Input:
+- File audio dalam format .opus
+
+Output:
+- Respons JSON berisi hasil deteksi Tajweed atau pesan kesalahan.
+- Status HTTP 400 Bad Request jika tidak ada file yang diunggah.
+- Status HTTP 500 Internal Server Error jika terjadi kesalahan dalam proses deteksi.
+
+Visualisasi Deteksi Tajweed
+---------------------------
+Endpoint: /visualize_tajweed
+Metode: POST
+Deskripsi: Menghasilkan visualisasi deteksi Tajweed dalam file audio .opus yang diunggah.
+Input:
+- File audio dalam format .opus
+
+Output:
+- Status HTTP 200 OK jika visualisasi berhasil.
+- Status HTTP 400 Bad Request jika tidak ada file yang diunggah.
+- Status HTTP 500 Internal Server Error jika terjadi kesalahan dalam proses visualisasi.
