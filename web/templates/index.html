@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+
+  <!-- Custom CSS for styling -->
+  <style>
+    /* Custom styles */
+    body {
+      background-color: #f8f9fa;
+    }
+    .upload-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
+    }
+    .card {
+      margin-top: 20px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
+    }
+    .result-container {
+      margin-top: 20px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
+      display: none; /* Hide result container by default */
+    }
+    .loading-container {
+      display: none; /* Hide loading container by default */
+      text-align: center;
+      margin-top: 20px;
+    }
+    .loading-text {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .loading-spinner {
+      border: 8px solid rgba(0, 0, 0, 0.1);
+      border-top: 8px solid #007bff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+
+  <title>Upload and Detect Tajweed</title>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-5 mb-4 text-center">Upload and Detect Tajweed</h1>
+
+    <!-- Upload form -->
+    <div class="card upload-container">
+      <div class="card-body">
+        <h5 class="card-title">Upload Audio File</h5>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label for="audioFile">Choose an audio file:</label>
+            <div class="input-group">
+              <div class="custom-file">
+                <input type="file" class="custom-file-input form-control-file" id="audioFile" accept=".wav, .mp3, .opus">
+                <label class="custom-file-label" for="audioFile">Choose file</label>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload and Detect</button>
+          <div class="loading-container">
+            <p class="loading-text">Analyzing Tajweed, may take a few minutes depending on the recording length...</p>
+            <div class="loading-spinner"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Result display card -->
+    <div class="card result-container">
+      <div class="card-body">
+        <h5 class="card-title">Detection Results</h5>
+        <div id="resultTable" class="mt-4"></div>
+        <div id="resultImage" class="mt-4"></div> <!-- Added div for image -->
+        <div id="audioPlayer" class="mt-4">
+          <button id="playPauseBtn" class="btn btn-primary play">Play</button>
+          <button id="stopBtn" class="btn btn-danger">Stop</button>
+        </div>
+        <audio id="audio" controls style="width: 100%;"></audio> <!-- Added audio element -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.js"></script>
+
+  <!-- Custom JavaScript for handling file upload and displaying results -->
+  <script>
+    $(document).ready(function() {
+        $('#uploadForm').submit(function(event) {
+            event.preventDefault();
+            
+            var formData = new FormData();
+            var file = $('#audioFile')[0].files[0];
+            formData.append('file', file);
+
+            // Hide upload form and show loading container
+            $('.upload-container').hide();
+            $('.loading-container').show(); // Show loading container
+
+            // Ajax request to handle file upload and analysis
+            $.ajax({
+                type: 'POST',
+                url: 'http://localhost:5000/upload_detect_visualize', // Change this URL to your API endpoint
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    // Hide loading container and show result container
+                    $('.loading-container').hide();
+                    $('.result-container').show();
+
+                    // Display results in table format
+                    var tableHtml = '<table class="table"><thead><tr><th>Tajweed</th><th>Similarity (%)</th></tr></thead><tbody>';
+                    response.segment_results.forEach(function(result) {
+                        var formattedTajweed = formatText(result[1]);
+                        tableHtml += '<tr><td>' + formattedTajweed + '</td><td>' + result[2].toFixed(2) + '</td></tr>';
+                    });
+                    tableHtml += '</tbody></table>';
+                    $('#resultTable').html(tableHtml);
+
+                    // Display image of the plot
+                    var imageUrl = response.plot_urls[0]; // Assuming only one plot URL is returned
+                    var imageHtml = '<img src="/' + imageUrl + '" class="img-fluid" alt="Detection Plot">';
+                    $('#resultImage').html(imageHtml);
+
+                    // Display audio player
+                    var audioUrl = '/' + response.audio_file;
+                    $('#audio').attr('src', audioUrl);
+                },
+                error: function(error) {
+                    console.error('Error uploading file:', error);
+                    $('.loading-container').hide(); // Hide loading container in case of error
+                    $('.upload-container').show(); // Show upload container again in case of error
+                }
+            });
+        });
+
+        // Function to format text
+        function formatText(text) {
+            return text
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        // Audio player controls
+        var audio = document.getElementById('audio');
+        var playPauseBtn = document.getElementById('playPauseBtn');
+        var stopBtn = document.getElementById('stopBtn');
+
+        playPauseBtn.addEventListener('click', function() {
+            if (audio.paused) {
+                audio.play();
+                playPauseBtn.textContent = 'Pause';
+            } else {
+                audio.pause();
+                playPauseBtn.textContent = 'Play';
+            }
+        });
+
+        stopBtn.addEventListener('click', function() {
+            audio.pause();
+            audio.currentTime = 0;
+            playPauseBtn.textContent = 'Play';
+        });
+
+        audio.addEventListener('ended', function() {
+            playPauseBtn.textContent = 'Play';
+        });
+    });
+  </script>
+
+</body>
+</html>
