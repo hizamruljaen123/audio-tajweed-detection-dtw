@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file, render_template, send_from_directory
+from flask import Flask, jsonify, request, send_file, render_template, send_from_directory, Response
 from flask_cors import CORS  # Import Flask-CORS
 import os
 import librosa
@@ -13,6 +13,9 @@ import uuid  # Untuk menghasilkan nama file yang unik
 from ftplib import FTP
 from pydub import AudioSegment
 import tempfile
+import json
+import time
+import threading
 
 app = Flask(__name__)
 CORS(app)  # Aktifkan CORS untuk semua rute
@@ -89,11 +92,17 @@ def load_model(file_path):
         print(f"Error loading model {file_path}: {e}")
         return None
 
-# Fungsi untuk deteksi Tajweed dan visualisasi
-def detect_and_visualize_tajweed(file_path, models_folder):
+# Fungsi untuk deteksi Tajweed dan visualisasi dengan progress tracking
+def detect_and_visualize_tajweed(file_path, models_folder, session_id=None):
+    if session_id:
+        update_progress(session_id, 1, 10, "Memuat file audio...")
+    
     test_features, test_signal, sr = extract_features(file_path)
     if test_features is None or test_signal is None or sr is None:
         return None, None, None, None
+
+    if session_id:
+        update_progress(session_id, 2, 20, "Ekstraksi fitur audio berhasil")
 
     segment_length = 5  # Panjang segmen dalam detik
     segment_length_samples = segment_length * sr
@@ -101,8 +110,14 @@ def detect_and_visualize_tajweed(file_path, models_folder):
     segment_results = []
     plot_urls = []
 
+    if session_id:
+        update_progress(session_id, 3, 30, f"Memuat {len(os.listdir(models_folder))} model Tajweed...")
+
     models = {tajweed.split('_model')[0]: load_model(os.path.join(models_folder, tajweed))
               for tajweed in os.listdir(models_folder) if tajweed.endswith('_model.pkl')}
+
+    if session_id:
+        update_progress(session_id, 4, 40, f"Model berhasil dimuat. Memproses {num_segments} segmen audio...")
 
     for i in range(num_segments):
         start = i * segment_length_samples
@@ -113,6 +128,11 @@ def detect_and_visualize_tajweed(file_path, models_folder):
         segment_mfcc = scaler.fit_transform(segment_mfcc.T).T  # Normalisasi fitur
         best_similarity = -np.inf
         best_tajweed = None
+
+        # Update progress untuk setiap segmen
+        segment_progress = 40 + (i / num_segments) * 40  # 40% to 80%
+        if session_id:
+            update_progress(session_id, 5, int(segment_progress), f"Memproses segmen {i+1}/{num_segments}...")
 
         print(f"Processing segment {i}...")
         for tajweed, tajweed_features in models.items():
@@ -135,6 +155,9 @@ def detect_and_visualize_tajweed(file_path, models_folder):
                 best_tajweed = tajweed
 
         segment_results.append((i, best_tajweed, best_similarity))
+
+    if session_id:
+        update_progress(session_id, 6, 85, "Membuat visualisasi grafik...")
 
     # Gabungkan hasil deteksi ke dalam satu grafik
     plt.figure(figsize=(12, 6))
@@ -160,9 +183,28 @@ def detect_and_visualize_tajweed(file_path, models_folder):
     plt.savefig(plot_file_path)
     plt.close()
 
+    if session_id:
+        update_progress(session_id, 7, 95, "Menyelesaikan analisis...")
+
     # Mengembalikan hasil deteksi dan nama file plot
     plot_urls.append(plot_file_name)
+    
+    if session_id:
+        update_progress(session_id, 8, 100, "Analisis selesai!")
+    
     return segment_results, plot_urls, test_signal, sr
+
+# Global dictionary untuk menyimpan progress
+progress_data = {}
+
+def update_progress(session_id, step, percentage, message):
+    """Update progress untuk session tertentu"""
+    progress_data[session_id] = {
+        'step': step,
+        'percentage': percentage,
+        'message': message,
+        'timestamp': time.time()
+    }
 
 # Route untuk unggah file audio, deteksi Tajweed, dan visualisasi
 @app.route('/upload_detect_visualize', methods=['POST'])
@@ -180,36 +222,91 @@ def upload_detect_visualize_tajweed():
 
     models_folder = '../models'  # Path folder tempat model-model Tajweed disimpan
 
-    segment_results, plot_urls, _, _ = detect_and_visualize_tajweed(file_path, models_folder)
+    # Check if models folder exists
+    if not os.path.exists(models_folder):
+        return jsonify({"message": "Models folder not found."}), 500
 
-    if segment_results and plot_urls:
-        # Mengirim file audio yang diunggah ke FTP
-        audio_filename = os.path.basename(file_path)
-        audio_remote_dir = 'public_html/tahsin/upload/audio_upload'
-        send_to_ftp(file_path, audio_filename, audio_remote_dir)
+    # Generate unique session ID
+    session_id = str(uuid.uuid4())
+    
+    # Start async processing
+    thread = threading.Thread(target=process_audio_async, args=(file_path, models_folder, session_id, async_results))
+    thread.start()
+    
+    return jsonify({"session_id": session_id}), 200
 
-        # Mengirim file gambar plot ke FTP
-        for plot_url in plot_urls:
-            plot_file_path = os.path.join('static/result', plot_url.split('/')[-1])  # Mendapatkan path lokal file plot
-            plot_remote_filename = plot_url.split('/')[-1]
-            plot_remote_dir = 'public_html/tahsin/upload/result_chart'
-            send_to_ftp(plot_file_path, plot_remote_filename, plot_remote_dir)
-
-        # Mengembalikan JSON hasil deteksi, URL plot, dan URL file audio serta file audio yang diunggah
-        results = {
-            "segment_results": segment_results,
-            "plot_urls": [f"https://hjmainserver.my.id/tahsin/upload/result_chart/{url}" for url in plot_urls],
-            "audio_file": f"https://hjmainserver.my.id/tahsin/upload/audio_upload/{audio_filename}"
-        }
-        print(f"Detection results: {results}")
-        return jsonify(results), 200
+# Route untuk mendapatkan hasil akhir
+@app.route('/get_results/<session_id>')
+def get_results(session_id):
+    if session_id in async_results:
+        result = async_results[session_id]
+        # Hapus hasil setelah diambil
+        del async_results[session_id]
+        return jsonify(result), 200
     else:
-        return jsonify({"message": "Error detecting and visualizing Tajweed."}), 500
+        return jsonify({"message": "Results not ready yet"}), 202
 
 # Fungsi untuk mengakses file plot dari direktori static/result
 @app.route('/result_chart/<path:filename>')
 def serve_plot(filename):
     return send_from_directory('static/result', filename)
+
+# Route untuk mengakses file uploads
+@app.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    return send_from_directory('static/uploads', filename)
+
+# Route untuk halaman utama (index)
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Route untuk halaman penjelasan tajweed
+@app.route('/tajweed')
+def tajweed():
+    return render_template('tajweed.html')
+
+# Route untuk streaming progress
+@app.route('/progress/<session_id>')
+def stream_progress(session_id):
+    def generate():
+        while True:
+            if session_id in progress_data:
+                data = progress_data[session_id]
+                yield f"data: {json.dumps(data)}\n\n"
+                
+                # Jika progress sudah 100%, hentikan streaming
+                if data['percentage'] >= 100:
+                    # Hapus data progress setelah selesai
+                    time.sleep(2)  # Tunggu 2 detik sebelum menghapus
+                    if session_id in progress_data:
+                        del progress_data[session_id]
+                    break
+            time.sleep(0.5)  # Update setiap 500ms
+    
+    return Response(generate(), mimetype='text/event-stream')
+
+def process_audio_async(file_path, models_folder, session_id, results_storage):
+    """Fungsi untuk memproses audio secara asynchronous"""
+    try:
+        segment_results, plot_urls, _, _ = detect_and_visualize_tajweed(file_path, models_folder, session_id)
+        
+        if segment_results and plot_urls:
+            audio_filename = os.path.basename(file_path)
+            results = {
+                "segment_results": segment_results,
+                "plot_urls": [f"/result_chart/{url}" for url in plot_urls],
+                "audio_file": f"/uploads/{audio_filename}",
+                "success": True
+            }
+            results_storage[session_id] = results
+        else:
+            results_storage[session_id] = {"success": False, "message": "Error detecting and visualizing Tajweed."}
+    except Exception as e:
+        results_storage[session_id] = {"success": False, "message": f"Error: {str(e)}"}
+
+# Storage untuk hasil asynchronous
+async_results = {}
 
 if __name__ == '__main__':
     app.run(debug=True)

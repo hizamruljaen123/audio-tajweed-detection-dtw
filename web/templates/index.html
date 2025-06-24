@@ -1,205 +1,753 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Required meta tags -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-  <!-- Bootstrap CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-
-  <!-- Custom CSS for styling -->
-  <style>
-    /* Custom styles */
-    body {
-      background-color: #f8f9fa;
-    }
-    .upload-container {
-      max-width: 600px;
-      margin: 20px auto;
-      background-color: #ffffff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
-    }
-    .card {
-      margin-top: 20px;
-      background-color: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
-    }
-    .result-container {
-      margin-top: 20px;
-      background-color: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0px 0px 15px 0px rgba(0,0,0,0.1);
-      display: none; /* Hide result container by default */
-    }
-    .loading-container {
-      display: none; /* Hide loading container by default */
-      text-align: center;
-      margin-top: 20px;
-    }
-    .loading-text {
-      font-size: 1.2rem;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-    .loading-spinner {
-      border: 8px solid rgba(0, 0, 0, 0.1);
-      border-top: 8px solid #007bff;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    canvas {
-      max-width: 100%;
-      height: auto;
-    }
-  </style>
-
-  <title>Upload and Detect Tajweed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Tajweed Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Poppins', 'Amiri', sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .islamic-pattern {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPgogIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmNWY1ZjUiLz4KICA8cGF0aCBkPSJNMjAsMjBMMCw0MEwyMCw2MEw0MCw0MEwyMCwyMHoiIGZpbGw9IiNlOGU4ZTgiIG9wYWNpdHk9IjAuMSIgdHJhbnNmb3JtPSJzY2FsZSgyKSIvPgogIDxwYXRoIGQ9Ik0xMDAsMTAwTDgwLDEyMEwxMDAsMTQwTDEyMCwxMjBMMTAwLDEwMHoiIGZpbGw9IiNlOGU4ZTgiIG9wYWNpdHk9IjAuMSIgdHJhbnNmb3JtPSJzY2FsZSgyKSIvPgo8L3N2Zz4=');
+            background-size: 300px;
+            background-repeat: repeat;
+        }
+        
+        .waveform {
+            background: linear-gradient(to right, #3490dc, #38c172);
+            height: 100px;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .waveform::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                to right,
+                transparent,
+                transparent 1px,
+                rgba(255, 255, 255, 0.2) 1px,
+                rgba(255, 255, 255, 0.2) 2px
+            );
+        }
+        
+        .tajweed-progress {
+            height: 10px;
+            border-radius: 5px;
+            background-color: #e2e8f0;
+            overflow: hidden;
+        }
+        
+        .tajweed-progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #38a169, #48bb78);
+            transition: width 0.3s ease;
+        }
+        
+        .play-button {
+            transition: all 0.2s ease;
+        }
+          .play-button:hover {
+            transform: scale(1.1);
+        }
+        
+        .progress-modal {
+            backdrop-filter: blur(5px);
+        }
+        
+        .step-animation {
+            animation: stepFadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes stepFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .modal-spinner {
+            animation: spin 2s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <h1 class="mt-5 mb-4 text-center">Upload and Detect Tajweed</h1>
-
-    <!-- Upload form -->
-    <div class="card upload-container">
-      <div class="card-body">
-        <h5 class="card-title">Upload Audio File</h5>
-        <form id="uploadForm" enctype="multipart/form-data">
-          <div class="form-group">
-            <label for="audioFile">Choose an audio file:</label>
-            <div class="input-group">
-              <div class="custom-file">
-                <input type="file" class="custom-file-input form-control-file" id="audioFile" accept=".wav, .mp3, .opus">
-                <label class="custom-file-label" for="audioFile">Choose file</label>
-              </div>
+<body class="min-h-screen islamic-pattern">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header Section -->
+        <header class="mb-12 text-center">
+            <div class="inline-block p-3 mb-4 bg-white rounded-full shadow-lg">
+                <i class="fas fa-quran text-4xl text-emerald-600"></i>
             </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Upload and Detect</button>
-          <div class="loading-container">
-            <p class="loading-text">Analyzing Tajweed, may take a few minutes depending on the recording length...</p>
-            <div class="loading-spinner"></div>
-          </div>
-        </form>
-      </div>
-    </div>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Tajweed Detection System</h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">Upload your Quran recitation to analyze Tajweed rules in real-time</p>
+        </header>
 
-    <!-- Result display card -->
-    <div class="card result-container">
-      <div class="card-body">
-        <h5 class="card-title">Detection Results</h5>
-        <div id="resultTable" class="mt-4"></div>
-        <div id="resultImage" class="mt-4"></div> <!-- Added div for image -->
-        <div id="audioPlayer" class="mt-4">
-          <button id="playPauseBtn" class="btn btn-primary play">Play</button>
-          <button id="stopBtn" class="btn btn-danger">Stop</button>
-        </div>
-        <audio id="audio" controls style="width: 100%;"></audio> <!-- Added audio element -->
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Bootstrap JS and dependencies -->
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@1.16.1/dist/umd/popper.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.js"></script>
-
-  <!-- Custom JavaScript for handling file upload and displaying results -->
-  <script>
-    $(document).ready(function() {
-        $('#uploadForm').submit(function(event) {
-            event.preventDefault();
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Upload and Visualization Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
+                    <i class="fas fa-upload mr-2 text-emerald-600"></i> Upload Audio
+                </h2>
+                
+                <div class="mb-6">
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition duration-300 hover:border-emerald-500 hover:bg-emerald-50">
+                        <div id="dropArea" class="cursor-pointer">
+                            <i class="fas fa-microphone-alt text-4xl text-emerald-500 mb-3"></i>
+                            <p class="text-gray-600 mb-2">Drag & drop your Quran recitation file here</p>
+                            <p class="text-sm text-gray-400 mb-4">or</p>
+                            <label for="fileUpload" class="inline-block px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition duration-200 cursor-pointer">
+                                <i class="fas fa-file-audio mr-2"></i> Select Audio File
+                                <input id="fileUpload" type="file" accept="audio/*" class="hidden" onchange="handleFileSelect(event)">
+                            </label>
+                        </div>
+                        <audio id="audioPlayer" class="w-full mt-4 hidden"></audio>
+                    </div>
+                </div>
+                
+                <div id="uploadProgress" class="hidden mb-6">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">Uploading...</span>
+                        <span id="progressPercent" class="text-sm font-medium text-emerald-600">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progressBar" class="bg-emerald-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div id="visualizationSection" class="hidden">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-waveform-lines mr-2 text-emerald-600"></i> Audio Analysis
+                    </h3>
+                    <div class="waveform mb-6" id="waveform">
+                        <canvas id="audioCanvas" class="w-full h-full"></canvas>
+                    </div>
+                    
+                    <div class="flex justify-center">
+                        <button id="playButton" class="play-button bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-14 h-14 flex items-center justify-center transition duration-200 shadow-lg">
+                            <i id="playIcon" class="fas fa-play text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
             
-            var formData = new FormData();
-            var file = $('#audioFile')[0].files[0];
+            <!-- Results Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
+                    <i class="fas fa-chart-bar mr-2 text-emerald-600"></i> Tajweed Analysis Results
+                </h2>
+                
+                <div id="emptyResults" class="text-center py-12">
+                    <i class="fas fa-tasks text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">Upload a Quran recitation to analyze Tajweed rules</p>
+                </div>
+                
+                <div id="resultsContainer" class="hidden">
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium text-gray-800 mb-4">Overall Tajweed Accuracy</h3>
+                        <div class="bg-emerald-50 rounded-lg p-4 flex items-center">
+                            <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mr-4">
+                                <span id="overallScore" class="text-2xl font-bold text-emerald-700">0%</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-gray-700">Tajweed Score</span>
+                                    <span id="scorePercent" class="text-sm font-medium text-emerald-600">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="scoreBar" class="bg-emerald-600 h-2 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium text-gray-800 mb-4">Tajweed Rules Detection</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rule</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tajweedTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Results will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 mb-4">Detailed Feedback</h3>
+                        <div id="feedbackContainer" class="bg-gray-50 rounded-lg p-4">
+                            <!-- Feedback will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let bufferLength;
+        let canvasCtx;
+        let audioPlayer;
+        let isPlaying = false;
+        let animationId;
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            audioPlayer = document.getElementById('audioPlayer');
+            setupAudioPlayer();
+            setupDragAndDrop();
+        });
+        
+        function setupDragAndDrop() {
+            const dropArea = document.getElementById('dropArea');
+            
+            ['dragenter', 'dragover', 'dragleave'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function handleDrop(e) {
+                preventDefaults(e);
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            }
+        }
+        
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }        function processFile(file) {
+            if (!file.type.match('audio.*')) {
+                alert('Please upload an audio file');
+                return;
+            }
+            
+            // Show progress modal
+            showProgressModal();
+            
+            // Create FormData for file upload
+            const formData = new FormData();
             formData.append('file', file);
-
-            // Hide upload form and show loading container
-            $('.upload-container').hide();
-            $('.loading-container').show(); // Show loading container
-
-            // Ajax request to handle file upload and analysis
-            $.ajax({
-                type: 'POST',
-                url: 'http://localhost:5000/upload_detect_visualize', // Change this URL to your API endpoint
-                data: formData,
-                contentType: false,
-                processData: false,
-                success: function(response) {
-                    // Hide loading container and show result container
-                    $('.loading-container').hide();
-                    $('.result-container').show();
-
-                    // Display results in table format
-                    var tableHtml = '<table class="table"><thead><tr><th>Tajweed</th><th>Similarity (%)</th></tr></thead><tbody>';
-                    response.segment_results.forEach(function(result) {
-                        var formattedTajweed = formatText(result[1]);
-                        tableHtml += '<tr><td>' + formattedTajweed + '</td><td>' + result[2].toFixed(2) + '</td></tr>';
-                    });
-                    tableHtml += '</tbody></table>';
-                    $('#resultTable').html(tableHtml);
-
-                    // Display image of the plot
-                    var imageUrl = response.plot_urls[0]; // Assuming only one plot URL is returned
-                    var imageHtml = '<img src="/' + imageUrl + '" class="img-fluid" alt="Detection Plot">';
-                    $('#resultImage').html(imageHtml);
-
-                    // Display audio player
-                    var audioUrl = '/' + response.audio_file;
-                    $('#audio').attr('src', audioUrl);
-                },
-                error: function(error) {
-                    console.error('Error uploading file:', error);
-                    $('.loading-container').hide(); // Hide loading container in case of error
-                    $('.upload-container').show(); // Show upload container again in case of error
+            
+            // Upload file to backend for Tajweed detection
+            fetch('/upload_detect_visualize', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.session_id) {
+                    // Start monitoring progress
+                    startProgressMonitoring(data.session_id, file);
+                } else {
+                    hideProgressModal();
+                    alert('Error: ' + (data.message || 'Failed to start analysis'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideProgressModal();
+                alert('Error uploading file. Please try again.');
+            });
+        }
+        
+        function showProgressModal() {            // Create modal HTML if it doesn't exist
+            if (!document.getElementById('progressModal')) {
+                const modalHTML = `
+                    <div id="progressModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 progress-modal">
+                        <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl">
+                            <div class="text-center">
+                                <div class="mb-6">
+                                    <div class="relative">
+                                        <i class="fas fa-quran modal-spinner text-5xl text-emerald-600"></i>
+                                        <div class="absolute -top-2 -right-2 w-4 h-4 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-800 mb-2">Menganalisis Tajweed</h3>
+                                <p class="text-gray-600 mb-6">Sistem sedang memproses bacaan Al-Qur'an Anda</p>
+                                <div class="mb-6">
+                                    <div class="w-full bg-gray-200 rounded-full h-4 shadow-inner">
+                                        <div id="modalProgressBar" class="bg-gradient-to-r from-emerald-500 to-emerald-600 h-4 rounded-full transition-all duration-500 shadow-sm" style="width: 0%"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-3">
+                                        <span id="modalProgressText" class="text-sm text-gray-600 font-medium">Memulai analisis...</span>
+                                        <span id="modalProgressPercent" class="text-sm font-bold text-emerald-600">0%</span>
+                                    </div>
+                                </div>
+                                <div class="text-left">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                        <i class="fas fa-list-ul mr-2 text-emerald-600"></i>
+                                        Progress Detail
+                                    </h4>
+                                    <div id="modalProgressSteps" class="bg-gray-50 rounded-lg p-4 max-h-40 overflow-y-auto border border-gray-200">
+                                        <div class="text-gray-500 text-sm flex items-center">
+                                            <i class="fas fa-hourglass-start mr-2 text-gray-400"></i>
+                                            Menunggu proses dimulai...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+            }
+            document.getElementById('progressModal').style.display = 'flex';
+        }
+        
+        function hideProgressModal() {
+            const modal = document.getElementById('progressModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function startProgressMonitoring(sessionId, file) {
+            const eventSource = new EventSource(`/progress/${sessionId}`);
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateProgressModal(data);
+                
+                if (data.percentage >= 100) {
+                    eventSource.close();
+                    // Get final results
+                    setTimeout(() => {
+                        getResults(sessionId, file);
+                    }, 1000);
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                console.error('EventSource failed:', event);
+                eventSource.close();
+                hideProgressModal();
+                alert('Error monitoring progress. Please try again.');
+            };
+        }
+          function updateProgressModal(data) {
+            const progressBar = document.getElementById('modalProgressBar');
+            const progressText = document.getElementById('modalProgressText');
+            const progressPercent = document.getElementById('modalProgressPercent');
+            const progressSteps = document.getElementById('modalProgressSteps');
+            
+            if (progressBar) progressBar.style.width = `${data.percentage}%`;
+            if (progressText) progressText.textContent = data.message;
+            if (progressPercent) progressPercent.textContent = `${data.percentage}%`;
+            
+            if (progressSteps) {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'flex items-center mb-1 step-animation';
+                
+                // Pilih icon berdasarkan step
+                let icon = 'fas fa-circle';
+                if (data.percentage >= 100) {
+                    icon = 'fas fa-check-circle text-green-500';
+                } else if (data.percentage >= 80) {
+                    icon = 'fas fa-chart-line text-blue-500';
+                } else if (data.percentage >= 40) {
+                    icon = 'fas fa-cogs text-yellow-500';
+                } else if (data.percentage >= 20) {
+                    icon = 'fas fa-file-audio text-purple-500';
+                } else {
+                    icon = 'fas fa-play text-emerald-500';
+                }
+                
+                stepElement.innerHTML = `
+                    <div class="w-4 h-4 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <i class="${icon} text-xs"></i>
+                    </div>
+                    <span class="text-gray-700 text-xs">${data.message}</span>
+                    <span class="ml-auto text-emerald-600 font-medium text-xs">${data.percentage}%</span>
+                `;
+                progressSteps.appendChild(stepElement);
+                progressSteps.scrollTop = progressSteps.scrollHeight;
+                
+                // Limit to last 8 steps to prevent overflow
+                const steps = progressSteps.children;
+                if (steps.length > 8) {
+                    progressSteps.removeChild(steps[0]);
+                }
+            }
+        }
+        
+        function getResults(sessionId, file) {
+            fetch(`/get_results/${sessionId}`)
+            .then(response => response.json())
+            .then(data => {
+                hideProgressModal();
+                if (data.success && data.segment_results && data.plot_urls) {
+                    setupAudioAnalysis(file, data);
+                    showRealAnalysisResults(data);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to get results'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideProgressModal();
+                alert('Error getting results. Please try again.');
+            });
+        }
+          function setupAudioAnalysis(file, detectionData = null) {
+            const fileURL = URL.createObjectURL(file);
+            audioPlayer.src = fileURL;
+            
+            // Show visualization section
+            document.getElementById('visualizationSection').classList.remove('hidden');
+            
+            // Initialize audio context and analyzer if not already done
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                const source = audioContext.createMediaElementSource(audioPlayer);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                // Setup canvas for visualization
+                const canvas = document.getElementById('audioCanvas');
+                canvasCtx = canvas.getContext('2d');
+                
+                // Set canvas dimensions
+                const waveform = document.getElementById('waveform');
+                canvas.width = waveform.clientWidth;
+                canvas.height = waveform.clientHeight;
+                
+                // Start visualization
+                visualize();
+            }
+            
+            // If we have detection data, show the plot
+            if (detectionData && detectionData.plot_urls && detectionData.plot_urls.length > 0) {
+                displayDetectionPlot(detectionData.plot_urls[0]);
+            }
+        }
+        
+        function setupAudioPlayer() {
+            const playButton = document.getElementById('playButton');
+            const playIcon = document.getElementById('playIcon');
+            
+            playButton.addEventListener('click', togglePlay);
+            
+            audioPlayer.addEventListener('play', () => {
+                isPlaying = true;
+                playIcon.className = 'fas fa-pause text-xl';
+                if (!audioContext) return;
+                isPlaying ? visualize() : cancelAnimationFrame(animationId);
+            });
+            
+            audioPlayer.addEventListener('pause', () => {
+                isPlaying = false;
+                playIcon.className = 'fas fa-play text-xl';
+                cancelAnimationFrame(animationId);
+            });
+            
+            audioPlayer.addEventListener('ended', () => {
+                isPlaying = false;
+                playIcon.className = 'fas fa-play text-xl';
+                cancelAnimationFrame(animationId);
+            });
+        }
+        
+        function togglePlay() {
+            if (audioPlayer.paused) {
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                audioPlayer.play();
+            } else {
+                audioPlayer.pause();
+            }
+        }
+        
+        function visualize() {
+            if (!isPlaying) return;
+            
+            animationId = requestAnimationFrame(visualize);
+            
+            analyser.getByteTimeDomainData(dataArray);
+            
+            const canvas = document.getElementById('audioCanvas');
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0)';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            canvasCtx.beginPath();
+            
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+                
+                x += sliceWidth;
+            }
+            
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+        }
+        
+        function displayDetectionPlot(plotUrl) {
+            // Create an image element to show the detection plot
+            const waveform = document.getElementById('waveform');
+            waveform.innerHTML = `<img src="${plotUrl}" alt="Tajweed Detection Plot" class="w-full h-full object-cover rounded-lg">`;
+        }
+        
+        function showRealAnalysisResults(detectionData) {
+            // Hide empty state
+            document.getElementById('emptyResults').classList.add('hidden');
+            
+            // Show results container
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.classList.remove('hidden');
+            
+            // Process segment results
+            const segmentResults = detectionData.segment_results;
+            const tajweedCounts = {};
+            let totalSimilarity = 0;
+            let segmentCount = 0;
+            
+            // Count occurrences and calculate average similarity for each Tajweed rule
+            segmentResults.forEach(([segment, tajweed, similarity]) => {
+                if (tajweed && similarity > 0) {
+                    if (!tajweedCounts[tajweed]) {
+                        tajweedCounts[tajweed] = { count: 0, totalSimilarity: 0 };
+                    }
+                    tajweedCounts[tajweed].count++;
+                    tajweedCounts[tajweed].totalSimilarity += similarity;
+                    totalSimilarity += similarity;
+                    segmentCount++;
                 }
             });
-        });
-
-        // Function to format text
-        function formatText(text) {
-            return text
+            
+            // Calculate overall score
+            const overallScore = segmentCount > 0 ? Math.round(totalSimilarity / segmentCount) : 0;
+            
+            // Update overall score display
+            document.getElementById('overallScore').textContent = `${overallScore}%`;
+            document.getElementById('scorePercent').textContent = `${overallScore}%`;
+            document.getElementById('scoreBar').style.width = `${overallScore}%`;
+            
+            // Create tajweed rules array with real data
+            const tajweedRules = Object.keys(tajweedCounts).map(tajweed => {
+                const avgSimilarity = Math.round(tajweedCounts[tajweed].totalSimilarity / tajweedCounts[tajweed].count);
+                return {
+                    name: formatTajweedName(tajweed),
+                    arabic: getTajweedArabic(tajweed),
+                    count: tajweedCounts[tajweed].count,
+                    accuracy: avgSimilarity
+                };
+            });
+            
+            // If no results, show a message
+            if (tajweedRules.length === 0) {
+                tajweedRules.push({
+                    name: "No Tajweed Detected",
+                    arabic: "لا توجد قواعد",
+                    count: 0,
+                    accuracy: 0
+                });
+            }
+            
+            // Populate tajweed rules table
+            const tableBody = document.getElementById('tajweedTableBody');
+            tableBody.innerHTML = '';
+            
+            tajweedRules.forEach(rule => {
+                const row = document.createElement('tr');
+                
+                const iconCell = document.createElement('td');
+                iconCell.className = 'px-6 py-4 whitespace-nowrap';
+                iconCell.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-8 w-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-star text-emerald-600 text-xs"></i>
+                        </div>
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">${rule.name}</div>
+                            <div class="text-xs text-gray-500">${rule.arabic}</div>
+                        </div>
+                    </div>
+                `;
+                
+                const countCell = document.createElement('td');
+                countCell.className = 'px-6 py-4 whitespace-nowrap';
+                countCell.innerHTML = `
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        ${rule.count} occurrences
+                    </span>
+                `;
+                
+                const accuracyCell = document.createElement('td');
+                accuracyCell.className = 'px-6 py-4 whitespace-nowrap';
+                accuracyCell.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-24 mr-2">
+                            <div class="tajweed-progress">
+                                <div class="tajweed-progress-bar" style="width: ${rule.accuracy}%"></div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-900">${rule.accuracy}%</div>
+                    </div>
+                `;
+                
+                row.appendChild(iconCell);
+                row.appendChild(countCell);
+                row.appendChild(accuracyCell);
+                tableBody.appendChild(row);
+            });
+            
+            // Generate feedback based on real results
+            generateFeedback(tajweedRules, overallScore);
+        }
+        
+        function formatTajweedName(tajweed) {
+            // Convert underscored names to proper format
+            return tajweed
                 .split('_')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
         }
-
-        // Audio player controls
-        var audio = document.getElementById('audio');
-        var playPauseBtn = document.getElementById('playPauseBtn');
-        var stopBtn = document.getElementById('stopBtn');
-
-        playPauseBtn.addEventListener('click', function() {
-            if (audio.paused) {
-                audio.play();
-                playPauseBtn.textContent = 'Pause';
-            } else {
-                audio.pause();
-                playPauseBtn.textContent = 'Play';
+        
+        function getTajweedArabic(tajweed) {
+            // Map Tajweed rules to Arabic names
+            const arabicMap = {
+                'idgham_bighunnah': 'الإدغام بغنة',
+                'idgham_bilaghunnah': 'الإدغام بلا غنة',
+                'idgham_mim': 'إدغام الميم',
+                'idgham_musyaddadah': 'الإدغام المشدد',
+                'ikhfa': 'الإخفاء',
+                'ikhfa_syafawi': 'الإخفاء الشفوي',
+                'iqlab': 'الإقلاب',
+                'izhar': 'الإظهار',
+                'izhar_syafawi': 'الإظهار الشفوي',
+                'mad_asli': 'المد الأصلي',
+                'mad_jaiz_munfasil': 'المد الجائز المنفصل',
+                'mad_wajib': 'المد الواجب',
+                'qalqalah_kubra': 'القلقلة الكبرى',
+                'qalqalah_sughra': 'القلقلة الصغرى'
+            };
+            return arabicMap[tajweed] || 'قاعدة تجويد';
+        }
+        
+        function generateFeedback(tajweedRules, overallScore) {
+            const feedbackContainer = document.getElementById('feedbackContainer');
+            feedbackContainer.innerHTML = '';
+            
+            const strengths = tajweedRules.filter(rule => rule.accuracy >= 70);
+            const areasToImprove = tajweedRules.filter(rule => rule.accuracy < 60);
+            
+            if (strengths.length > 0) {
+                const strengthElement = document.createElement('div');
+                strengthElement.className = 'mb-3';
+                strengthElement.innerHTML = `
+                    <div class="flex items-center text-emerald-600 mb-1">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span class="font-medium">Strengths</span>
+                    </div>
+                    <div class="text-sm text-gray-700 ml-6">
+                        You performed well on: ${strengths.map(rule => rule.name).join(', ')}
+                    </div>
+                `;
+                feedbackContainer.appendChild(strengthElement);
             }
-        });
-
-        stopBtn.addEventListener('click', function() {
-            audio.pause();
-            audio.currentTime = 0;
-            playPauseBtn.textContent = 'Play';
-        });
-
-        audio.addEventListener('ended', function() {
-            playPauseBtn.textContent = 'Play';
-        });
-    });
-  </script>
-
+            
+            if (areasToImprove.length > 0) {
+                const improvementElement = document.createElement('div');
+                improvementElement.className = 'mb-3';
+                improvementElement.innerHTML = `
+                    <div class="flex items-center text-yellow-600 mb-1">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span class="font-medium">Areas to Improve</span>
+                    </div>
+                    <div class="text-sm text-gray-700 ml-6">
+                        Focus on practicing these rules: ${areasToImprove.map(rule => rule.name).join(', ')}
+                    </div>
+                `;
+                feedbackContainer.appendChild(improvementElement);
+            }
+            
+            // Overall feedback
+            let feedbackText = '';
+            if (overallScore >= 80) {
+                feedbackText = 'Excellent Tajweed! Keep up the great work.';
+            } else if (overallScore >= 60) {
+                feedbackText = 'Good progress. Focus on the areas that need improvement.';
+            } else {
+                feedbackText = 'Keep practicing. Regular practice will help improve your Tajweed.';
+            }
+            
+            const suggestionElement = document.createElement('div');
+            suggestionElement.className = 'mt-6 p-3 bg-emerald-50 rounded-md border border-emerald-100';
+            suggestionElement.innerHTML = `
+                <div class="flex">
+                    <div class="flex-shrink-0 mt-1">
+                        <i class="fas fa-lightbulb text-emerald-500 text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-emerald-800">Practice Suggestion</h4>
+                        <div class="mt-1 text-sm text-emerald-700">
+                            ${feedbackText} ${areasToImprove.length > 0 ? `We recommend practicing ${areasToImprove[0].name} for 10-15 minutes daily.` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            feedbackContainer.appendChild(suggestionElement);
+        }
+    </script>
 </body>
 </html>
